@@ -1,6 +1,7 @@
 ---
 import Layout from './Layout.astro';
 import MiniCart from '../components/MiniCart.vue';
+import CategoryNav from '../components/CategoryNav.astro';
 ---
 
 <Layout>
@@ -17,14 +18,7 @@ import MiniCart from '../components/MiniCart.vue';
                     <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
                         <li><a href="/">Home</a></li>
                         <li><a href="/products">Products</a></li>
-                        <li>
-                            <a>Categories</a>
-                            <ul class="p-2">
-                                <li><a href="/products?category=electronics">Electronics</a></li>
-                                <li><a href="/products?category=clothing">Clothing</a></li>
-                                <li><a href="/products?category=home">Home & Kitchen</a></li>
-                            </ul>
-                        </li>
+                        <CategoryNav view="mobile" />
                         <li><a href="/contact">Contact</a></li>
                     </ul>
                 </div>
@@ -34,16 +28,7 @@ import MiniCart from '../components/MiniCart.vue';
                 <ul class="menu menu-horizontal px-1">
                     <li><a href="/">Home</a></li>
                     <li><a href="/products">Products</a></li>
-                    <li>
-                        <details>
-                            <summary>Categories</summary>
-                            <ul class="p-2 bg-base-100 z-10">
-                                <li><a href="/products?category=electronics">Electronics</a></li>
-                                <li><a href="/products?category=clothing">Clothing</a></li>
-                                <li><a href="/products?category=home">Home & Kitchen</a></li>
-                            </ul>
-                        </details>
-                    </li>
+                    <CategoryNav view="desktop" />
                     <li><a href="/contact">Contact</a></li>
                 </ul>
             </div>
@@ -71,9 +56,9 @@ import MiniCart from '../components/MiniCart.vue';
         <nav>
             <header class="footer-title">Shop</header>
             <a href="/products" class="link link-hover">All Products</a>
+            <a href="/categories" class="link link-hover">Browse Categories</a>
             <a href="/products?onSale=true" class="link link-hover">On Sale</a>
             <a href="/products?sort=newest" class="link link-hover">New Arrivals</a>
-            <a href="/products?inStock=true" class="link link-hover">In Stock</a>
         </nav>
         <nav>
             <header class="footer-title">Company</header>
@@ -123,6 +108,8 @@ import MiniCart from '../components/MiniCart.vue';
         </aside>
     </footer>
 </Layout>
+
+<!-- Auth templates and JS remain unchanged -->
 
 <!-- Templates for authentication state -->
 <template id="logged-in-template">

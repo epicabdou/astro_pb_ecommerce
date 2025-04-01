@@ -1,0 +1,63 @@
+---
+import { getParentCategories } from '../lib/pocketbase';
+
+// Fetch top-level categories
+const categories = await getParentCategories();
+
+// Format image URLs
+const getCategoryImageUrl = (category) => {
+    return category.image
+        ? `http://127.0.0.1:8090/api/files/categories/${category.id}/${category.image}`
+        : '/placeholder.png';
+};
+
+// Take at most 6 categories to display
+const featuredCategories = categories.slice(0, 6);
+---
+
+<section class="py-12 bg-base-100">
+    <div class="container mx-auto px-4">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold mb-2">Shop By Category</h2>
+            <p class="text-base-content/70 max-w-2xl mx-auto">
+                Explore our wide range of products organized by category
+            </p>
+        </div>
+
+        {featuredCategories.length > 0 ? (
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {featuredCategories.map(category => (
+                            <a
+                                    href={`/categories/${category.slug}`}
+                                    class="card bg-base-200 hover:shadow-md transition-shadow overflow-hidden group"
+                            >
+                                <figure class="h-40 w-full relative">
+                                    <img
+                                            src={getCategoryImageUrl(category)}
+                                            alt={category.name}
+                                            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                    />
+                                    <div class="absolute inset-0 bg-gradient-to-t from-base-300/80 via-transparent"></div>
+                                </figure>
+                                <div class="absolute bottom-0 w-full p-3 text-center">
+                                    <h3 class="font-semibold text-base-content text-lg">{category.name}</h3>
+                                </div>
+                            </a>
+                    ))}
+                </div>
+        ) : (
+                <div class="text-center py-12 bg-base-200 rounded-lg">
+                    <p>No categories found. Check back soon!</p>
+                </div>
+        )}
+
+        <div class="flex justify-center mt-8">
+            <a href="/categories" class="btn btn-primary">
+                View All Categories
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+            </a>
+        </div>
+    </div>
+</section>

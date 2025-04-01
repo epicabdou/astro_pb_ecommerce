@@ -16,5 +16,15 @@ export default defineConfig({
 
   output: 'server',
   site: 'https://ajimall.fr',
-  integrations: [tailwind(), vue(), sitemap()]
+  integrations: [
+    tailwind(),
+    vue({
+      template: {
+        compilerOptions: {
+          // Register swiper custom elements
+          isCustomElement: tag => tag.startsWith('swiper-')
+        }
+      }
+    }),
+    sitemap()]
 });

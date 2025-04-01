@@ -39,17 +39,30 @@ export async function updateUser(userId, data) {
 }
 
 // Products functions
-export async function getProducts(page = 1, perPage = 20, filters = {}, sort = '-created') {
-    const filterString = Object.entries(filters)
-        .filter(([_, value]) => value)
-        .map(([key, value]) => `${key}="${value}"`)
-        .join(' && ');
+export async function getProducts(page = 1, perPage = 20, options = {}, sort = '-created') {
+    let filterString = '';
 
-    return await pb.collection('products').getList(page, perPage, {
-        filter: filterString || undefined,
-        sort: sort,
-        expand: 'category,tags',
-    });
+    if (options.filter) {
+        filterString = options.filter;
+    }
+
+    try {
+        return await pb.collection('products').getList(page, perPage, {
+            filter: filterString || undefined,
+            sort: sort,
+            expand: 'category,tags',
+        });
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        // Return empty results rather than throwing
+        return {
+            page: page,
+            perPage: perPage,
+            totalItems: 0,
+            totalPages: 1,
+            items: []
+        };
+    }
 }
 
 export async function getProductBySlug(slug) {
@@ -69,84 +82,188 @@ export async function getProductBySlug(slug) {
 }
 
 export async function getFeaturedProducts(limit = 8) {
-    return await pb.collection('products').getList(1, limit, {
-        filter: 'isFeatured=true',
-        sort: '-created',
-        expand: 'category',
-    });
+    try {
+        return await pb.collection('products').getList(1, limit, {
+            filter: 'isFeatured=true',
+            sort: '-created',
+            expand: 'category',
+        });
+    } catch (error) {
+        console.error('Error fetching featured products:', error);
+        // Return empty results
+        return {
+            page: 1,
+            perPage: limit,
+            totalItems: 0,
+            totalPages: 1,
+            items: []
+        };
+    }
 }
 
 // Categories functions
 export async function getCategories() {
-    return await pb.collection('categories').getFullList({
-        sort: 'name',
-    });
+    try {
+        const categories = await pb.collection('categories').getFullList({
+            sort: 'name',
+        });
+
+        // Process the categories to add useful properties
+        return categories.map(category => {
+            return {
+                ...category,
+                // Add a property to check if it's a parent category (no parent id)
+                isParent: !category.parent
+            };
+        });
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        return [];
+    }
 }
 
 export async function getCategoryBySlug(slug) {
     try {
-        return await pb.collection('categories').getFirstListItem(`slug="${slug}"`);
+        // Get the category
+        const category = await pb.collection('categories').getFirstListItem(`slug="${slug}"`);
+
+        // If it has a parent, expand the parent details
+        if (category.parent) {
+            try {
+                const expandedCategory = await pb.collection('categories').getOne(category.id, {
+                    expand: 'parent',
+                });
+                category.expand = expandedCategory.expand;
+            } catch (error) {
+                console.error('Error expanding category parent:', error);
+            }
+        }
+
+        return category;
     } catch (error) {
         console.error('Error fetching category:', error);
         return null;
     }
 }
 
+export async function getSubcategories(parentId) {
+    try {
+        if (!parentId) return [];
+
+        return await pb.collection('categories').getFullList({
+            filter: `parent="${parentId}"`,
+            sort: 'name',
+        });
+    } catch (error) {
+        console.error('Error fetching subcategories:', error);
+        return [];
+    }
+}
+
+export async function getParentCategories() {
+    try {
+        return await pb.collection('categories').getFullList({
+            filter: `parent=""`,
+            sort: 'name',
+        });
+    } catch (error) {
+        console.error('Error fetching parent categories:', error);
+        return [];
+    }
+}
+
 // Tags functions
 export async function getTags() {
-    return await pb.collection('tags').getFullList({
-        sort: 'name',
-    });
+    try {
+        return await pb.collection('tags').getFullList({
+            sort: 'name',
+        });
+    } catch (error) {
+        console.error('Error fetching tags:', error);
+        return [];
+    }
 }
 
 // Reviews functions
 export async function getProductReviews(productId) {
-    return await pb.collection('reviews').getList(1, 100, {
-        filter: `product="${productId}"`,
-        sort: '-created',
-        expand: 'user',
-    });
+    try {
+        return await pb.collection('reviews').getList(1, 100, {
+            filter: `product="${productId}"`,
+            sort: '-created',
+            expand: 'user',
+        });
+    } catch (error) {
+        console.error('Error fetching product reviews:', error);
+        return {
+            page: 1,
+            perPage: 100,
+            totalItems: 0,
+            totalPages: 1,
+            items: []
+        };
+    }
 }
 
 export async function createReview(data) {
-    return await pb.collection('reviews').create(data);
+    try {
+        return await pb.collection('reviews').create(data);
+    } catch (error) {
+        console.error('Error creating review:', error);
+        throw error;
+    }
 }
 
 // Orders functions
 export async function createOrder(orderData, orderItems, shippingAddress) {
-    // Create order
-    const order = await pb.collection('orders').create(orderData);
+    try {
+        // Create order
+        const order = await pb.collection('orders').create(orderData);
 
-    // Create order items and link them to the order
-    const itemPromises = orderItems.map((item) => {
-        return pb.collection('orderItems').create({
-            order: order.id,
-            product: item.product,
-            quantity: item.quantity,
-            price: item.price,
+        // Create order items and link them to the order
+        const itemPromises = orderItems.map((item) => {
+            return pb.collection('orderItems').create({
+                order: order.id,
+                product: item.product,
+                quantity: item.quantity,
+                price: item.price,
+            });
         });
-    });
 
-    await Promise.all(itemPromises);
+        await Promise.all(itemPromises);
 
-    // Create shipping address
-    if (shippingAddress) {
-        await pb.collection('shippingAddresses').create({
-            ...shippingAddress,
-            order: order.id,
-            user: orderData.user,
-        });
+        // Create shipping address
+        if (shippingAddress) {
+            await pb.collection('shippingAddresses').create({
+                ...shippingAddress,
+                order: order.id,
+                user: orderData.user,
+            });
+        }
+
+        return order;
+    } catch (error) {
+        console.error('Error creating order:', error);
+        throw error;
     }
-
-    return order;
 }
 
 export async function getUserOrders(userId) {
-    return await pb.collection('orders').getList(1, 50, {
-        filter: `user="${userId}"`,
-        sort: '-created',
-        expand: 'user',
-    });
+    try {
+        return await pb.collection('orders').getList(1, 50, {
+            filter: `user="${userId}"`,
+            sort: '-created',
+            expand: 'user',
+        });
+    } catch (error) {
+        console.error('Error fetching user orders:', error);
+        return {
+            page: 1,
+            perPage: 50,
+            totalItems: 0,
+            totalPages: 1,
+            items: []
+        };
+    }
 }
 
 export async function getOrderDetails(orderId) {
@@ -171,81 +288,42 @@ export async function getOrderDetails(orderId) {
 
 // Wishlist functions
 export async function getUserWishlist(userId) {
-    return await pb.collection('wishlists').getList(1, 100, {
-        filter: `user="${userId}"`,
-        expand: 'product',
-    });
+    try {
+        return await pb.collection('wishlists').getList(1, 100, {
+            filter: `user="${userId}"`,
+            expand: 'product',
+        });
+    } catch (error) {
+        console.error('Error fetching user wishlist:', error);
+        return {
+            page: 1,
+            perPage: 100,
+            totalItems: 0,
+            totalPages: 1,
+            items: []
+        };
+    }
 }
 
 export async function addToWishlist(userId, productId) {
-    return await pb.collection('wishlists').create({
-        user: userId,
-        product: productId,
-    });
+    try {
+        return await pb.collection('wishlists').create({
+            user: userId,
+            product: productId,
+        });
+    } catch (error) {
+        console.error('Error adding to wishlist:', error);
+        throw error;
+    }
 }
 
 export async function removeFromWishlist(wishlistId) {
-    return await pb.collection('wishlists').delete(wishlistId);
-}
-
-// Cart functions (Local storage implementation)
-export function getCart() {
-    if (typeof window === 'undefined') return [];
-
-    const cart = localStorage.getItem('cart');
-    return cart ? JSON.parse(cart) : [];
-}
-
-export function addToCart(product, quantity = 1) {
-    if (typeof window === 'undefined') return;
-
-    const cart = getCart();
-    const existingItem = cart.find(item => item.product.id === product.id);
-
-    if (existingItem) {
-        existingItem.quantity += quantity;
-    } else {
-        cart.push({ product, quantity });
+    try {
+        return await pb.collection('wishlists').delete(wishlistId);
+    } catch (error) {
+        console.error('Error removing from wishlist:', error);
+        throw error;
     }
-
-    localStorage.setItem('cart', JSON.stringify(cart));
-    return cart;
-}
-
-export function updateCartItem(productId, quantity) {
-    if (typeof window === 'undefined') return;
-
-    const cart = getCart();
-    const itemIndex = cart.findIndex(item => item.product.id === productId);
-
-    if (itemIndex >= 0) {
-        if (quantity <= 0) {
-            cart.splice(itemIndex, 1);
-        } else {
-            cart[itemIndex].quantity = quantity;
-        }
-
-        localStorage.setItem('cart', JSON.stringify(cart));
-    }
-
-    return cart;
-}
-
-export function removeFromCart(productId) {
-    if (typeof window === 'undefined') return;
-
-    const cart = getCart();
-    const updatedCart = cart.filter(item => item.product.id !== productId);
-
-    localStorage.setItem('cart', JSON.stringify(updatedCart));
-    return updatedCart;
-}
-
-export function clearCart() {
-    if (typeof window === 'undefined') return;
-
-    localStorage.removeItem('cart');
-    return [];
 }
 
 // Helper function to check if user is authenticated

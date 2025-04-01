@@ -1,0 +1,287 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import ProductsList from '../../components/ProductsList.vue';
+import RelatedCategories from '../../components/RelatedCategories.astro';
+import PopularCategoryProducts from '../../components/PopularCategoryProducts.astro';
+import ErrorMessage from '../../components/ErrorMessage.astro';
+import { pb, getCategoryBySlug, getProducts, getCategories, getTags, getSubcategories } from '../../lib/pocketbase';
+
+// Get the category slug from the URL
+const { slug } = Astro.params;
+
+if (!slug) {
+    return Astro.redirect('/categories');
+}
+
+// Fetch the category details
+const category = await getCategoryBySlug(slug);
+
+if (!category) {
+    return Astro.redirect('/categories');
+}
+
+// Expand parent relationship if it exists
+if (category.parent) {
+    try {
+        const expandedCategory = await pb.collection('categories').getOne(category.id, {
+            expand: 'parent',
+        });
+        category.expand = expandedCategory.expand;
+    } catch (error) {
+        console.error('Error expanding category parent:', error);
+    }
+}
+
+// Get query parameters for filtering and pagination
+const { searchParams } = Astro.url;
+const page = Number(searchParams.get('page')) || 1;
+const tagSlug = searchParams.get('tag') || '';
+const search = searchParams.get('search') || '';
+const minPrice = searchParams.get('minPrice') || '';
+const maxPrice = searchParams.get('maxPrice') || '';
+const inStock = searchParams.get('inStock') === 'true';
+const onSale = searchParams.get('onSale') === 'true';
+const sort = searchParams.get('sort') || 'newest';
+
+// Fetch categories and tags for filtering
+const categories = await getCategories();
+const tags = await getTags();
+
+// Create filter object
+const filters = {};
+
+// Build a filter string like in your products page
+let filterStrings = [];
+
+// Add the category filter
+if (category && category.id) {
+    filterStrings.push(`category.id ?~ "${category.id}"`);
+}
+
+if (tagSlug) {
+    const tagIds = tags
+        .filter(tag => tag.slug === tagSlug)
+        .map(tag => tag.id);
+    if (tagIds.length > 0) {
+        filterStrings.push(`tags.id ?~ "${tagIds[0]}"`);
+    }
+}
+
+if (search) {
+    filterStrings.push(`name ~ "${search}"`);
+}
+
+if (minPrice) {
+    filterStrings.push(`price >= ${parseFloat(minPrice)}`);
+}
+
+if (maxPrice) {
+    filterStrings.push(`price <= ${parseFloat(maxPrice)}`);
+}
+
+if (inStock) {
+    filterStrings.push('stock > 0');
+}
+
+if (onSale) {
+    filterStrings.push('promoPrice > 0');
+}
+
+// Join all filter conditions
+if (filterStrings.length > 0) {
+    filters.filter = filterStrings.join(' && ');
+}
+
+// Determine sort order
+let sortOrder = '-created';
+switch (sort) {
+    case 'oldest':
+        sortOrder = '+created';
+        break;
+    case 'price_low':
+        sortOrder = '+price';
+        break;
+    case 'price_high':
+        sortOrder = '-price';
+        break;
+    case 'name_asc':
+        sortOrder = '+name';
+        break;
+    case 'name_desc':
+        sortOrder = '-name';
+        break;
+    default:
+        sortOrder = '-created';
+}
+
+// Fetch products with filters
+const productsPerPage = 12;
+let products = [];
+let totalPages = 1;
+let totalItems = 0;
+
+try {
+    const productsData = await getProducts(page, productsPerPage, filters, sortOrder);
+    products = productsData.items;
+    totalPages = Math.ceil(productsData.totalItems / productsPerPage);
+    totalItems = productsData.totalItems;
+} catch (error) {
+    console.error('Error fetching products for category:', error);
+    // Default values already set
+}
+
+// Initial filter state for the component
+const initialFilters = {
+    search,
+    category: slug,
+    tag: tagSlug,
+    minPrice,
+    maxPrice,
+    inStock,
+    onSale,
+    sort
+};
+
+// Format category image URL
+const categoryImageUrl = category.image
+    ? `http://127.0.0.1:8090/api/files/categories/${category.id}/${category.image}`
+    : '/placeholder.png';
+
+// Helper function to build URL with parameters
+function buildUrl(params = {}) {
+    const url = new URL(Astro.request.url);
+    Object.entries({ ...Object.fromEntries(url.searchParams), ...params }).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+            url.searchParams.set(key, value);
+        } else {
+            url.searchParams.delete(key);
+        }
+    });
+    return url.toString();
+}
+
+// Get parent category if exists
+const parentCategory = category.parent ? categories.find(cat => cat.id === category.parent) : null;
+
+// Get subcategories if any - this was duplicated, keep only this one
+const subcategories = categories.filter(cat => cat.parent === category.id);
+---
+
+<MainLayout>
+    <div class="container mx-auto px-4 py-8">
+        <!-- Hero banner for category -->
+        <div class="relative rounded-xl overflow-hidden mb-8 bg-base-200">
+            <img
+                    src={categoryImageUrl}
+                    alt={category.name}
+                    class="w-full h-64 object-cover"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-base-300/80 to-transparent"></div>
+            <div class="absolute bottom-0 left-0 p-6 md:p-8">
+                <h1 class="text-3xl md:text-4xl font-bold text-white drop-shadow-md mb-2">{category.name}</h1>
+                {category.description && (
+                        <p class="max-w-xl text-white/90 drop-shadow-md">{category.description}</p>
+                )}
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+            <!-- Breadcrumbs -->
+            <div class="breadcrumbs text-sm">
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/categories">Categories</a></li>
+                    {parentCategory && (
+                            <li><a href={`/categories/${parentCategory.slug}`}>{parentCategory.name}</a></li>
+                    )}
+                    <li>{category.name}</li>
+                </ul>
+            </div>
+
+            <!-- Product count -->
+            <p class="text-sm font-medium">
+                Showing {products.length} of {totalItems} products
+            </p>
+        </div>
+
+        <!-- Subcategories if any -->
+        {subcategories.length > 0 && (
+                <div class="mb-8">
+                    <h2 class="text-xl font-semibold mb-4">Browse Subcategories</h2>
+                    <div class="flex flex-wrap gap-2">
+                        {subcategories.map(subcat => (
+                                <a
+                                        href={`/categories/${subcat.slug}`}
+                                        class="badge badge-lg badge-outline hover:bg-base-300 transition-colors"
+                                >
+                                    {subcat.name}
+                                </a>
+                        ))}
+                    </div>
+                </div>
+        )}
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <!-- Sidebar with related categories and additional filters -->
+            <div class="lg:col-span-1">
+                <div class="sticky top-24 space-y-6">
+                    <!-- Import the RelatedCategories component -->
+                    <RelatedCategories categoryId={category.id} currentSlug={slug} />
+
+                    <!-- Popular Products in this category -->
+                    <!--PopularCategoryProducts categoryId={category.id} limit={2} /-->
+
+                    <!-- Category description card -->
+                    <div class="card bg-base-200 p-4 rounded-lg">
+                        <h3 class="font-semibold text-lg mb-3">About {category.name}</h3>
+                        <p class="text-sm text-base-content/70">
+                            {category.description || `Browse our selection of ${category.name} products. We offer competitive prices and high-quality items.`}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products List Component -->
+            <div class="lg:col-span-3">
+                {products.length === 0 && page === 1 && !search && !minPrice && !maxPrice ? (
+                        <div class="space-y-4">
+                            <ErrorMessage
+                                    title="No Products Found"
+                                    message={`We couldn't find any products in the '${category.name}' category at this time. Please check back later or browse other categories.`}
+                                    showHomeButton={false}
+                            />
+                            <div class="card bg-base-100 shadow-lg p-8 text-center">
+                                <h3 class="text-xl font-semibold mb-4">Try Another Category</h3>
+                                <div class="flex flex-wrap justify-center gap-2">
+                                    {categories.slice(0, 6).map(cat => (
+                                            <a href={`/categories/${cat.slug}`} class="btn btn-outline btn-sm">
+                                                {cat.name}
+                                            </a>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                ) : (
+                        <ProductsList
+                                client:load
+                                initialProducts={products}
+                                categories={categories}
+                                tags={tags}
+                                totalPages={totalPages}
+                                currentPage={page}
+                                initialFilters={initialFilters}
+                                on:filter={(filters) => {
+                                    window.location.href = buildUrl({
+                                        ...filters,
+                                        page: 1 // Reset to first page when applying new filters
+                            });
+                                }}
+                                on:paginate={(newPage) => {
+                                    window.location.href = buildUrl({ page: newPage });
+                                }}
+                        />
+                )}
+            </div>
+        </div>
+    </div>
+</MainLayout>

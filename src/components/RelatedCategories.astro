@@ -1,0 +1,115 @@
+---
+// Component for showing related categories (siblings, parent, and children)
+import { getCategories, getCategoryBySlug, getSubcategories } from '../lib/pocketbase';
+
+const { categoryId, currentSlug } = Astro.props;
+
+if (!categoryId) {
+    return null;
+}
+
+// Get the current category
+const category = await getCategoryBySlug(currentSlug);
+const allCategories = await getCategories();
+
+// Get children categories
+let children = [];
+if (category) {
+    try {
+        children = await getSubcategories(category.id);
+    } catch (error) {
+        console.error('Error fetching subcategories:', error);
+    }
+}
+
+// Get siblings (other categories with the same parent)
+let siblings = [];
+if (category && category.parent) {
+    siblings = allCategories.filter(cat =>
+        cat.parent === category.parent && cat.id !== category.id
+    );
+}
+
+// Get the parent category if it exists
+const parent = category && category.parent
+    ? allCategories.find(cat => cat.id === category.parent)
+    : null;
+
+// Format the category image URL
+const getCategoryImageUrl = (cat) => {
+    return cat.image
+        ? `http://127.0.0.1:8090/api/files/categories/${cat.id}/${cat.image}`
+        : '/placeholder.png';
+};
+
+// Check if we have any related categories to display
+const hasRelatedCategories = children.length > 0 || siblings.length > 0 || parent;
+---
+
+{hasRelatedCategories && (
+<div class="bg-base-200 rounded-lg p-6 mb-8">
+    <h3 class="text-lg font-semibold mb-4">Related Categories</h3>
+
+    <!-- Parent category if exists -->
+    {parent && (
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-base-content/70 mb-2">Parent Category</h4>
+                <a
+                        href={`/categories/${parent.slug}`}
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-base-300 transition-colors"
+                >
+                    <div class="avatar">
+                        <div class="w-8 h-8 rounded">
+                            <img src={getCategoryImageUrl(parent)} alt={parent.name} />
+                        </div>
+                    </div>
+                    <span>{parent.name}</span>
+                </a>
+            </div>
+    )}
+
+    <!-- Child categories if any -->
+    {children.length > 0 && (
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-base-content/70 mb-2">Subcategories</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {children.map(child => (
+                            <a
+                                    href={`/categories/${child.slug}`}
+                                    class="flex items-center gap-2 p-2 rounded-lg hover:bg-base-300 transition-colors"
+                            >
+                                <div class="avatar">
+                                    <div class="w-8 h-8 rounded">
+                                        <img src={getCategoryImageUrl(child)} alt={child.name} />
+                                    </div>
+                                </div>
+                                <span>{child.name}</span>
+                            </a>
+                    ))}
+                </div>
+            </div>
+    )}
+
+    <!-- Sibling categories if any -->
+    {siblings.length > 0 && (
+            <div>
+                <h4 class="text-sm font-medium text-base-content/70 mb-2">Related Categories</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {siblings.map(sibling => (
+                            <a
+                                    href={`/categories/${sibling.slug}`}
+                                    class="flex items-center gap-2 p-2 rounded-lg hover:bg-base-300 transition-colors"
+                            >
+                                <div class="avatar">
+                                    <div class="w-8 h-8 rounded">
+                                        <img src={getCategoryImageUrl(sibling)} alt={sibling.name} />
+                                    </div>
+                                </div>
+                                <span>{sibling.name}</span>
+                            </a>
+                    ))}
+                </div>
+            </div>
+    )}
+</div>
+    )}

@@ -24,6 +24,14 @@ const imageUrl = computed(() => {
       : '/placeholder.png';
 });
 
+// Sanitize description text to avoid hydration mismatches
+// This will escape backslashes that can cause hydration issues
+const sanitizeText = (text) => {
+  if (!text) return '';
+  // Replace problematic escape sequences that might cause hydration issues
+  return text.replace(/\\/g, '\\\\');
+};
+
 // Format price display
 const formatPrice = (price) => {
   return new Intl.NumberFormat('en-US', {
@@ -84,7 +92,7 @@ const handleAddToCart = (event) => {
       <h2 class="card-title text-lg">{{ product.name }}</h2>
 
       <!-- Product Description -->
-      <p class="text-sm line-clamp-2 text-base-content/70">{{ product.shortDescription }}</p>
+      <p class="text-sm line-clamp-2 text-base-content/70" v-html="sanitizeText(product.shortDescription)"></p>
 
       <div class="mt-auto pt-2">
         <!-- Price Display -->

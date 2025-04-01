@@ -1,0 +1,97 @@
+---
+import { getParentCategories, getSubcategories } from '../lib/pocketbase';
+
+// Fetch parent categories (top-level)
+let parentCategories = [];
+try {
+    parentCategories = await getParentCategories();
+} catch (error) {
+    console.error('Error fetching parent categories:', error);
+}
+
+// Preload subcategories for each parent to avoid multiple requests in the UI
+let categoryTree = [];
+try {
+    categoryTree = await Promise.all(
+        parentCategories.map(async (parent) => {
+            try {
+                const children = await getSubcategories(parent.id);
+                return {
+                    ...parent,
+                    children
+                };
+            } catch (error) {
+                console.error(`Error fetching subcategories for ${parent.name}:`, error);
+                return {
+                    ...parent,
+                    children: []
+                };
+            }
+        })
+    );
+} catch (error) {
+    console.error('Error building category tree:', error);
+}
+---
+
+<!-- This component renders differently for desktop and mobile -->
+{Astro.props.view === 'mobile' ? (
+<li>
+    <a>Categories</a>
+    <ul class="p-2">
+        <li><a href="/categories">All Categories</a></li>
+        {categoryTree.map(parent => (
+                <li>
+                    {parent.children && parent.children.length > 0 ? (
+                            <>
+                                <a href={`/categories/${parent.slug}`}>{parent.name}</a>
+                                <ul class="p-2">
+                                    {parent.children.map(child => (
+                                            <li>
+                                                <a href={`/categories/${child.slug}`}>{child.name}</a>
+                                            </li>
+                                    ))}
+                                </ul>
+                            </>
+                    ) : (
+                            <a href={`/categories/${parent.slug}`}>{parent.name}</a>
+                    )}
+                </li>
+        ))}
+    </ul>
+</li>
+    ) : (
+    <!-- Desktop Category Navigation -->
+<li>
+    <details>
+        <summary>Categories</summary>
+        <ul class="p-2 bg-base-100 z-10">
+            <li>
+                <a href="/categories">All Categories</a>
+            </li>
+            <div class="divider my-1"></div>
+            {categoryTree.map(parent => (
+                    <li>
+                        {parent.children && parent.children.length > 0 ? (
+                                <details>
+                                    <summary>{parent.name}</summary>
+                                    <ul>
+                                        <li>
+                                            <a href={`/categories/${parent.slug}`}>All {parent.name}</a>
+                                        </li>
+                                        {parent.children.map(child => (
+                                                <li>
+                                                    <a href={`/categories/${child.slug}`}>{child.name}</a>
+                                                </li>
+                                        ))}
+                                    </ul>
+                                </details>
+                        ) : (
+                                <a href={`/categories/${parent.slug}`}>{parent.name}</a>
+                        )}
+                    </li>
+            ))}
+        </ul>
+    </details>
+</li>
+    )}

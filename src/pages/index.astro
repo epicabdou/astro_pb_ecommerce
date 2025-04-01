@@ -1,7 +1,139 @@
 ---
-import Layout from '../layouts/Layout.astro';
+import MainLayout from '../layouts/MainLayout.astro';
+import HeroSwiper from '../components/HeroSwiper.vue';
+import ProductCarousel from '../components/ProductCarousel.vue';
+import CategoryShowcase from '../components/CategoryShowcase.vue';
+import PromoBanners from '../components/PromoBanners.vue';
+import Testimonials from '../components/Testimonials.vue';
+import NewsletterSignup from '../components/NewsletterSignup.vue';
+import { getFeaturedProducts, getCategories } from '../lib/pocketbase';
+
+// Fetch data for the page
+const featuredProducts = await getFeaturedProducts(12);
+const categories = await getCategories();
+const newArrivals = await getFeaturedProducts(8); // In a real app, you'd have a specific function
+
+// Hero slides data
+const heroSlides = [
+	{
+		title: "Summer Collection 2025",
+		description: "Discover our latest arrivals perfect for the summer season. Exclusive designs at amazing prices.",
+		buttonText: "Shop Now",
+		buttonLink: "/products?tag=summer",
+		imageUrl: "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=2070&auto=format&fit=crop"
+	},
+	{
+		title: "Tech Gadgets Sale",
+		description: "Up to 40% off on the latest tech gadgets. Limited time offer!",
+		buttonText: "View Offers",
+		buttonLink: "/products?category=electronics&onSale=true",
+		imageUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=2070&auto=format&fit=crop"
+	},
+	{
+		title: "Home & Living Essentials",
+		description: "Transform your space with our carefully curated home collection.",
+		buttonText: "Explore",
+		buttonLink: "/products?category=home",
+		imageUrl: "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=2070&auto=format&fit=crop"
+	}
+];
+
+// Promo banners data
+const promoBanners = [
+	{
+		title: "Special Offers",
+		description: "Save up to 40% on selected items this month only!",
+		badge: "Limited Time",
+		buttonText: "Shop Sale",
+		buttonLink: "/products?onSale=true",
+		imageUrl: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop"
+	},
+	{
+		title: "Free Shipping",
+		description: "On all orders over $50. International shipping available.",
+		badge: "Free Delivery",
+		buttonText: "Learn More",
+		buttonLink: "/shipping",
+		imageUrl: "https://images.unsplash.com/photo-1585821569331-f071db2abd8d?q=80&w=2070&auto=format&fit=crop"
+	}
+];
+
+// Testimonials data
+const testimonials = [
+	{
+		name: "Sarah Johnson",
+		title: "Regular Customer",
+		rating: 5,
+		text: "I've been shopping here for years and the quality is always outstanding. Their customer service is exceptional!",
+		avatarUrl: "https://randomuser.me/api/portraits/women/12.jpg"
+	},
+	{
+		name: "Michael Chen",
+		title: "Verified Buyer",
+		rating: 4,
+		text: "Great selection of products at reasonable prices. Shipping was fast and everything arrived well packaged.",
+		avatarUrl: "https://randomuser.me/api/portraits/men/22.jpg"
+	},
+	{
+		name: "Emma Rodriguez",
+		title: "New Customer",
+		rating: 5,
+		text: "First time ordering and I'm impressed! The website is easy to navigate and checkout was seamless.",
+		avatarUrl: "https://randomuser.me/api/portraits/women/33.jpg"
+	},
+	{
+		name: "David Wilson",
+		title: "Premium Member",
+		rating: 5,
+		text: "The quality exceeds expectations every time. Definitely worth the investment for these premium products.",
+		avatarUrl: "https://randomuser.me/api/portraits/men/44.jpg"
+	}
+];
 ---
 
-<Layout>
-	<h1>Welcome to <span class="text-gradient">Astro</span></h1>
-</Layout>
+<MainLayout>
+	<!-- Hero Swiper -->
+	<HeroSwiper client:load slides={heroSlides} />
+
+	<!-- Featured Products -->
+	<ProductCarousel
+		client:visible
+		title="Featured Products"
+		description="Explore our most popular items hand-picked for you"
+		products={featuredProducts}
+		viewAllLink="/products?isFeatured=true"
+	/>
+
+	<!-- Category Showcase -->
+	<CategoryShowcase client:visible categories={categories} />
+
+	<!-- Promo Banners -->
+	<PromoBanners client:visible banners={promoBanners} />
+
+	<!-- New Arrivals Products -->
+	<ProductCarousel
+		client:visible
+		title="New Arrivals"
+		description="Check out the latest additions to our collection"
+		products={newArrivals}
+		viewAllLink="/products?sort=newest"
+	/>
+
+	<!-- Testimonials -->
+	<Testimonials client:visible testimonials={testimonials} />
+
+	<!-- Newsletter Signup -->
+	<NewsletterSignup client:visible />
+</MainLayout>
+
+<style>
+	/* Add any page-specific styles here */
+</style>
+
+<!-- Required JavaScript for SwiperJS -->
+<script>
+	// Import Swiper styles
+	import 'swiper/css';
+	import 'swiper/css/navigation';
+	import 'swiper/css/pagination';
+</script>

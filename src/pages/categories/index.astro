@@ -1,0 +1,78 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import { getCategories } from '../../lib/pocketbase';
+
+// Fetch all categories
+const categories = await getCategories();
+
+// Format image URL
+const getCategoryImageUrl = (category) => {
+    return category.image
+        ? `http://127.0.0.1:8090/api/files/categories/${category.id}/${category.image}`
+        : '/placeholder.png';
+};
+---
+
+<MainLayout>
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <h1 class="text-3xl font-bold">Categories</h1>
+
+            <div class="breadcrumbs text-sm">
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li>Categories</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Categories Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {categories.map((category) => (
+                    <a
+                            href={`/categories/${category.slug}`}
+                            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow duration-300 h-64"
+                    >
+                        <figure class="h-40">
+                            <img
+                                    src={getCategoryImageUrl(category)}
+                                    alt={category.name}
+                                    class="h-full w-full object-cover"
+                            />
+                        </figure>
+                        <div class="card-body p-4">
+                            <h2 class="card-title">{category.name}</h2>
+                            {category.description && (
+                                    <p class="text-sm text-base-content/70 line-clamp-2">{category.description}</p>
+                            )}
+                        </div>
+                    </a>
+            ))}
+        </div>
+
+        <!-- Empty State -->
+        {categories.length === 0 && (
+                <div class="text-center py-12 bg-base-200 rounded-lg">
+                    <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-16 w-16 mx-auto mb-4 opacity-30"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                    >
+                        <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                        />
+                    </svg>
+                    <h2 class="text-2xl font-bold mb-2">No Categories Found</h2>
+                    <p class="mb-4">There are currently no product categories available.</p>
+                    <a href="/products" class="btn btn-primary">
+                        Browse All Products
+                    </a>
+                </div>
+        )}
+    </div>
+</MainLayout>
