@@ -1,0 +1,199 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import ProductsList from '../../components/ProductsList.vue';
+import { getProducts, getCategories, getTags } from '../../lib/pocketbase';
+
+// Get query parameters
+const { searchParams } = Astro.url;
+const page = Number(searchParams.get('page')) || 1;
+const categorySlug = searchParams.get('category') || '';
+const tagSlug = searchParams.get('tag') || '';
+const search = searchParams.get('search') || '';
+const minPrice = searchParams.get('minPrice') || '';
+const maxPrice = searchParams.get('maxPrice') || '';
+const inStock = searchParams.get('inStock') === 'true';
+const onSale = searchParams.get('onSale') === 'true';
+const sort = searchParams.get('sort') || 'newest';
+
+// Fetch categories and tags for filtering
+const categories = await getCategories();
+const tags = await getTags();
+
+// Create filter object
+const filters = {};
+
+if (categorySlug) {
+    const categoryIds = categories
+        .filter(cat => cat.slug === categorySlug)
+        .map(cat => cat.id);
+    if (categoryIds.length > 0) {
+        filters['category~'] = categoryIds[0];
+    }
+}
+
+if (tagSlug) {
+    const tagIds = tags
+        .filter(tag => tag.slug === tagSlug)
+        .map(tag => tag.id);
+    if (tagIds.length > 0) {
+        filters['tags~'] = tagIds[0];
+    }
+}
+
+if (search) {
+    filters['name~'] = search;
+}
+
+if (minPrice) {
+    filters['price>='] = parseFloat(minPrice);
+}
+
+if (maxPrice) {
+    filters['price<='] = parseFloat(maxPrice);
+}
+
+if (inStock) {
+    filters['stock>'] = 0;
+}
+
+if (onSale) {
+    filters['promoPrice>'] = 0;
+}
+
+// Determine sort order
+let sortOrder = '-created';
+switch (sort) {
+    case 'oldest':
+        sortOrder = '+created';
+        break;
+    case 'price_low':
+        sortOrder = '+price';
+        break;
+    case 'price_high':
+        sortOrder = '-price';
+        break;
+    case 'name_asc':
+        sortOrder = '+name';
+        break;
+    case 'name_desc':
+        sortOrder = '-name';
+        break;
+    default:
+        sortOrder = '-created';
+}
+
+// Fetch products with filters
+const productsPerPage = 12;
+const productsData = await getProducts(page, productsPerPage, filters, sortOrder);
+const products = productsData.items;
+const totalPages = Math.ceil(productsData.totalItems / productsPerPage);
+
+// Initial filter state for the component
+const initialFilters = {
+    search,
+    category: categorySlug,
+    tag: tagSlug,
+    minPrice,
+    maxPrice,
+    inStock,
+    onSale,
+    sort
+};
+
+// Helper function to build URL with parameters
+function buildUrl(params = {}) {
+    const url = new URL(Astro.request.url);
+    Object.entries({ ...Object.fromEntries(url.searchParams), ...params }).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+            url.searchParams.set(key, value);
+        } else {
+            url.searchParams.delete(key);
+        }
+    });
+    return url.toString();
+}
+
+// Handle server-side form submission for initial page load
+if (Astro.request.method === 'POST') {
+    const formData = await Astro.request.formData();
+    const newParams = {};
+
+    // Extract form values
+    newParams.search = formData.get('search') || '';
+    newParams.category = formData.get('category') || '';
+    newParams.tag = formData.get('tag') || '';
+    newParams.minPrice = formData.get('minPrice') || '';
+    newParams.maxPrice = formData.get('maxPrice') || '';
+    newParams.inStock = formData.get('inStock') === 'on' ? 'true' : '';
+    newParams.onSale = formData.get('onSale') === 'on' ? 'true' : '';
+    newParams.sort = formData.get('sort') || 'newest';
+    newParams.page = '1'; // Reset to first page when filtering
+
+    // Redirect to the same page with new query params
+    return Astro.redirect(buildUrl(newParams));
+}
+---
+
+<MainLayout>
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <h1 class="text-3xl font-bold">Products</h1>
+
+            <div class="breadcrumbs text-sm">
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li>Products</li>
+                    {categorySlug &&
+                            <li>{categories.find(cat => cat.slug === categorySlug)?.name || categorySlug}</li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        <ProductsList
+                client:load
+                initialProducts={products}
+                categories={categories}
+                tags={tags}
+                totalPages={totalPages}
+                currentPage={page}
+                initialFilters={initialFilters}
+                on:filter={(filters) => {
+                    window.location.href = buildUrl({
+                        ...filters,
+                        page: 1 // Reset to first page when applying new filters
+        });
+                }}
+                on:paginate={(newPage) => {
+                    window.location.href = buildUrl({ page: newPage });
+                }}
+        />
+    </div>
+</MainLayout>
+
+<script>
+    // Client-side handling of filter changes
+    document.addEventListener('DOMContentLoaded', () => {
+        const filterForm = document.getElementById('filter-form');
+        if (filterForm) {
+            filterForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(filterForm);
+                const params = new URLSearchParams();
+
+                // Build query parameters from form data
+                for (const [key, value] of formData.entries()) {
+                    if (value) {
+                        params.append(key, value);
+                    }
+                }
+
+                // Reset to first page when filtering
+                params.set('page', '1');
+
+                // Redirect to new URL with filters
+                window.location.href = `${window.location.pathname}?${params.toString()}`;
+            });
+        }
+    });
+</script>

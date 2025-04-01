@@ -39,7 +39,7 @@ export async function updateUser(userId, data) {
 }
 
 // Products functions
-export async function getProducts(page = 1, perPage = 20, filters = {}) {
+export async function getProducts(page = 1, perPage = 20, filters = {}, sort = '-created') {
     const filterString = Object.entries(filters)
         .filter(([_, value]) => value)
         .map(([key, value]) => `${key}="${value}"`)
@@ -47,7 +47,7 @@ export async function getProducts(page = 1, perPage = 20, filters = {}) {
 
     return await pb.collection('products').getList(page, perPage, {
         filter: filterString || undefined,
-        sort: '-created',
+        sort: sort,
         expand: 'category,tags',
     });
 }
@@ -55,7 +55,13 @@ export async function getProducts(page = 1, perPage = 20, filters = {}) {
 export async function getProductBySlug(slug) {
     try {
         const product = await pb.collection('products').getFirstListItem(`slug="${slug}"`);
-        return product;
+
+        // Expand related data
+        const expandedProduct = await pb.collection('products').getOne(product.id, {
+            expand: 'category,tags',
+        });
+
+        return expandedProduct;
     } catch (error) {
         console.error('Error fetching product:', error);
         return null;
@@ -180,6 +186,66 @@ export async function addToWishlist(userId, productId) {
 
 export async function removeFromWishlist(wishlistId) {
     return await pb.collection('wishlists').delete(wishlistId);
+}
+
+// Cart functions (Local storage implementation)
+export function getCart() {
+    if (typeof window === 'undefined') return [];
+
+    const cart = localStorage.getItem('cart');
+    return cart ? JSON.parse(cart) : [];
+}
+
+export function addToCart(product, quantity = 1) {
+    if (typeof window === 'undefined') return;
+
+    const cart = getCart();
+    const existingItem = cart.find(item => item.product.id === product.id);
+
+    if (existingItem) {
+        existingItem.quantity += quantity;
+    } else {
+        cart.push({ product, quantity });
+    }
+
+    localStorage.setItem('cart', JSON.stringify(cart));
+    return cart;
+}
+
+export function updateCartItem(productId, quantity) {
+    if (typeof window === 'undefined') return;
+
+    const cart = getCart();
+    const itemIndex = cart.findIndex(item => item.product.id === productId);
+
+    if (itemIndex >= 0) {
+        if (quantity <= 0) {
+            cart.splice(itemIndex, 1);
+        } else {
+            cart[itemIndex].quantity = quantity;
+        }
+
+        localStorage.setItem('cart', JSON.stringify(cart));
+    }
+
+    return cart;
+}
+
+export function removeFromCart(productId) {
+    if (typeof window === 'undefined') return;
+
+    const cart = getCart();
+    const updatedCart = cart.filter(item => item.product.id !== productId);
+
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
+    return updatedCart;
+}
+
+export function clearCart() {
+    if (typeof window === 'undefined') return;
+
+    localStorage.removeItem('cart');
+    return [];
 }
 
 // Helper function to check if user is authenticated

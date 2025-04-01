@@ -1,0 +1,85 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import { pb } from '../../lib/pocketbase';
+
+let error = '';
+let success = false;
+let redirectUrl = '/';
+
+try {
+    // Get the query parameters
+    const { searchParams } = Astro.url;
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    const provider = 'google'; // Since we're specifically using Google OAuth
+    const redirectParam = searchParams.get('redirect');
+
+    if (redirectParam) {
+        // Validate redirect URL (only accept relative URLs for security)
+        try {
+            const url = new URL(redirectParam, Astro.url.origin);
+            if (url.origin === Astro.url.origin) {
+                redirectUrl = redirectParam;
+            }
+        } catch (e) {
+            // Invalid URL, use default
+        }
+    }
+
+    if (code) {
+        // Exchange the authorization code for an auth token
+        await pb.collection('users').authWithOAuth2Code(
+            provider,
+            code,
+            state,
+            Astro.url.origin + '/auth/callback'
+        );
+
+        // Authentication successful
+        success = true;
+
+        // Redirect to the requested URL or home page
+        return Astro.redirect(redirectUrl);
+    } else {
+        error = 'No authorization code provided';
+    }
+} catch (err) {
+    console.error('OAuth Callback Error:', err);
+    error = 'Authentication failed. Please try again.';
+}
+---
+
+<MainLayout>
+    <div class="flex justify-center items-center min-h-[calc(100vh-200px)]">
+        <div class="max-w-md w-full p-8 bg-base-100 rounded-lg shadow-lg text-center">
+            {success ? (
+                    <div class="space-y-4">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/20 text-success mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold">Authentication Successful</h2>
+                        <p>You have been logged in successfully.</p>
+                        <div class="flex justify-center">
+                            <span class="loading loading-spinner loading-md"></span>
+                        </div>
+                        <p class="text-sm opacity-70">Redirecting you to your destination...</p>
+                    </div>
+            ) : (
+                    <div class="space-y-4">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-error/20 text-error mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold">Authentication Failed</h2>
+                        <p>{error}</p>
+                        <div class="pt-4">
+                            <a href="/login" class="btn btn-primary">Try Again</a>
+                        </div>
+                    </div>
+            )}
+        </div>
+    </div>
+</MainLayout>
