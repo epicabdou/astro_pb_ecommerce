@@ -6,8 +6,5 @@ export default {
 	theme: {
 		extend: {},
 	},
-	plugins: [daisyui],
-	daisyui: {
-		themes: ["bumblebee"], // change to cupcake
-	}
+	plugins: [daisyui]
 }
