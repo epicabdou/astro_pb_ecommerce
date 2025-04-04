@@ -1,6 +1,6 @@
 ---
 import MainLayout from '../../layouts/MainLayout.astro';
-import ProductsList from '../../components/ProductsList.vue';
+import FilteredProductList from '../../components/FilteredProductList.vue';
 import RelatedCategories from '../../components/RelatedCategories.astro';
 import PopularCategoryProducts from '../../components/PopularCategoryProducts.astro';
 import ErrorMessage from '../../components/ErrorMessage.astro';
@@ -221,15 +221,12 @@ const subcategories = categories.filter(cat => cat.parent === category.id);
                 </div>
         )}
 
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <!-- Sidebar with related categories and additional filters -->
+        <div class="grid grid-cols-1 lg:grid-cols-6 gap-8">
+            <!-- Sidebar with related categories and additional info (smaller now) -->
             <div class="lg:col-span-1">
                 <div class="sticky top-24 space-y-6">
                     <!-- Import the RelatedCategories component -->
                     <RelatedCategories categoryId={category.id} currentSlug={slug} />
-
-                    <!-- Popular Products in this category -->
-                    <!--PopularCategoryProducts categoryId={category.id} limit={2} /-->
 
                     <!-- Category description card -->
                     <div class="card bg-base-200 p-4 rounded-lg">
@@ -241,8 +238,8 @@ const subcategories = categories.filter(cat => cat.parent === category.id);
                 </div>
             </div>
 
-            <!-- Products List Component -->
-            <div class="lg:col-span-3">
+            <!-- Products List Component (wider) -->
+            <div class="lg:col-span-5">
                 {products.length === 0 && page === 1 && !search && !minPrice && !maxPrice ? (
                         <div class="space-y-4">
                             <ErrorMessage
@@ -262,7 +259,7 @@ const subcategories = categories.filter(cat => cat.parent === category.id);
                             </div>
                         </div>
                 ) : (
-                        <ProductsList
+                        <FilteredProductList
                                 client:load
                                 initialProducts={products}
                                 categories={categories}

@@ -3,6 +3,7 @@
 import { computed } from "vue";
 import { useStore } from '@nanostores/vue';
 import { cartItems, cartTotal, clearCart } from '../stores/cartStore';
+import CheckoutButton from './CheckoutButton.vue';
 
 const $cartItems = useStore(cartItems);
 const $cartTotal = useStore(cartTotal);
@@ -83,12 +84,12 @@ const handleClearCart = () => {
 
       <!-- Buttons -->
       <div class="card-actions mt-6">
-        <button
-            class="btn btn-primary w-full"
-            :disabled="$cartItems.length === 0"
+        <CheckoutButton
+          full-width
+          :disabled="$cartItems.length === 0"
         >
           Proceed to Checkout
-        </button>
+        </CheckoutButton>
 
         <button
             v-if="$cartItems.length > 0"

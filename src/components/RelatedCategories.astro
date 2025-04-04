@@ -47,19 +47,19 @@ const hasRelatedCategories = children.length > 0 || siblings.length > 0 || paren
 ---
 
 {hasRelatedCategories && (
-<div class="bg-base-200 rounded-lg p-6 mb-8">
-    <h3 class="text-lg font-semibold mb-4">Related Categories</h3>
+<div class="bg-base-200 rounded-lg p-4 mb-4">
+    <h3 class="text-base font-semibold mb-3">Related Categories</h3>
 
     <!-- Parent category if exists -->
     {parent && (
-            <div class="mb-4">
-                <h4 class="text-sm font-medium text-base-content/70 mb-2">Parent Category</h4>
+            <div class="mb-3">
+                <h4 class="text-xs font-medium text-base-content/70 mb-1">Parent Category</h4>
                 <a
                         href={`/categories/${parent.slug}`}
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-base-300 transition-colors"
+                        class="flex items-center gap-2 p-1 rounded hover:bg-base-300 transition-colors text-sm"
                 >
                     <div class="avatar">
-                        <div class="w-8 h-8 rounded">
+                        <div class="w-6 h-6 rounded">
                             <img src={getCategoryImageUrl(parent)} alt={parent.name} />
                         </div>
                     </div>
@@ -70,20 +70,20 @@ const hasRelatedCategories = children.length > 0 || siblings.length > 0 || paren
 
     <!-- Child categories if any -->
     {children.length > 0 && (
-            <div class="mb-4">
-                <h4 class="text-sm font-medium text-base-content/70 mb-2">Subcategories</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div class="mb-3">
+                <h4 class="text-xs font-medium text-base-content/70 mb-1">Subcategories</h4>
+                <div class="flex flex-col gap-1">
                     {children.map(child => (
                             <a
                                     href={`/categories/${child.slug}`}
-                                    class="flex items-center gap-2 p-2 rounded-lg hover:bg-base-300 transition-colors"
+                                    class="flex items-center gap-2 p-1 rounded hover:bg-base-300 transition-colors text-sm"
                             >
                                 <div class="avatar">
-                                    <div class="w-8 h-8 rounded">
+                                    <div class="w-6 h-6 rounded">
                                         <img src={getCategoryImageUrl(child)} alt={child.name} />
                                     </div>
                                 </div>
-                                <span>{child.name}</span>
+                                <span class="truncate">{child.name}</span>
                             </a>
                     ))}
                 </div>
@@ -93,19 +93,19 @@ const hasRelatedCategories = children.length > 0 || siblings.length > 0 || paren
     <!-- Sibling categories if any -->
     {siblings.length > 0 && (
             <div>
-                <h4 class="text-sm font-medium text-base-content/70 mb-2">Related Categories</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <h4 class="text-xs font-medium text-base-content/70 mb-1">Related Categories</h4>
+                <div class="flex flex-col gap-1">
                     {siblings.map(sibling => (
                             <a
                                     href={`/categories/${sibling.slug}`}
-                                    class="flex items-center gap-2 p-2 rounded-lg hover:bg-base-300 transition-colors"
+                                    class="flex items-center gap-2 p-1 rounded hover:bg-base-300 transition-colors text-sm"
                             >
                                 <div class="avatar">
-                                    <div class="w-8 h-8 rounded">
+                                    <div class="w-6 h-6 rounded">
                                         <img src={getCategoryImageUrl(sibling)} alt={sibling.name} />
                                     </div>
                                 </div>
-                                <span>{sibling.name}</span>
+                                <span class="truncate">{sibling.name}</span>
                             </a>
                     ))}
                 </div>

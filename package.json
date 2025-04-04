@@ -19,6 +19,7 @@
     "daisyui": "^5.0.9",
     "nanostores": "^0.11.4",
     "pocketbase": "^0.25.2",
+    "stripe": "^17.7.0",
     "swiper": "^11.2.6",
     "tailwindcss": "^3.4.17",
     "vue": "^3.5.13"

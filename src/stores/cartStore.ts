@@ -1,6 +1,14 @@
-// src/stores/cartStore.js
+// src/stores/cartStore.ts
 import { persistentAtom } from '@nanostores/persistent';
 import { computed } from 'nanostores';
+
+// Export the cartStore object for components that need the complete store
+export const cartStore = {
+  items: persistentAtom('cart-items', [], {
+    encode: JSON.stringify,
+    decode: JSON.parse,
+  })
+};
 
 // Create a persistent store for the cart
 export const cartItems = persistentAtom('cart-items', [], {

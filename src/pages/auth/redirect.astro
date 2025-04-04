@@ -21,11 +21,32 @@ import MainLayout from '../../layouts/MainLayout.astro';
 
     // This script runs when the page loads to handle the OAuth redirect
     document.addEventListener('DOMContentLoaded', () => {
-        // Get the redirect destination from localStorage (or default to home)
-        const redirectUrl = localStorage.getItem('redirectAfterAuth') || '/';
-
-        // Clear the stored redirect URL
-        localStorage.removeItem('redirectAfterAuth');
+        // Check for redirect paths in different storage mechanisms
+        // First check sessionStorage for redirect_after_login (used by CheckoutButton)
+        const sessionRedirect = sessionStorage.getItem('redirect_after_login');
+        // Then check localStorage for redirectAfterAuth (used by OAuth flow)
+        const localRedirect = localStorage.getItem('redirectAfterAuth');
+        // Finally, check URL params (might be passed directly)
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryRedirect = urlParams.get('redirect');
+        
+        // Determine the final redirect destination, with priorities
+        let redirectUrl = '/';
+        
+        if (sessionRedirect) {
+            redirectUrl = sessionRedirect;
+            sessionStorage.removeItem('redirect_after_login');
+        } else if (localRedirect) {
+            redirectUrl = localRedirect;
+            localStorage.removeItem('redirectAfterAuth');
+        } else if (queryRedirect) {
+            // Handle special cases
+            if (queryRedirect === 'checkout') {
+                redirectUrl = '/checkout';
+            } else {
+                redirectUrl = queryRedirect;
+            }
+        }
 
         // Check if the user is authenticated
         if (pb.authStore.isValid) {

@@ -4,7 +4,15 @@ import { login, pb } from '../lib/pocketbase';
 
 // Get redirect URL from query params (if any)
 const { searchParams } = Astro.url;
-const redirectUrl = searchParams.get('redirect') || '/';
+const redirectParam = searchParams.get('redirect');
+
+// Handle special redirects
+let redirectUrl = '/';
+if (redirectParam === 'checkout') {
+    redirectUrl = '/checkout';
+} else if (redirectParam) {
+    redirectUrl = redirectParam;
+}
 
 // Handle form submission
 let errorMessage = '';

@@ -1,0 +1,344 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import CartSummary from '../../components/CartSummary.vue';
+import AuthGuard from '../../components/AuthGuard.vue';
+import { pb, isAuthenticated } from '../../lib/pocketbase';
+
+// Authentication check temporarily removed
+const loggedIn = isAuthenticated();
+
+// Get user information if logged in
+let user = null;
+let addresses = [];
+
+if (loggedIn) {
+  try {
+    user = pb.authStore.model;
+
+    // Get user's shipping addresses
+    const addressesResponse = await pb.collection('shippingAddresses').getList(1, 20, {
+      filter: `user="${user.id}"`,
+      sort: '-isDefault,-created',
+    });
+
+    addresses = addressesResponse.items;
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+  }
+}
+---
+
+<MainLayout>
+  <div class="container mx-auto px-4 py-8">
+    <div class="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+      <h1 class="text-3xl font-bold">Checkout</h1>
+
+      <div class="breadcrumbs text-sm">
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/cart">Cart</a></li>
+          <li>Checkout</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Client-side auth guard temporarily removed -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Checkout Form -->
+      <div class="lg:col-span-2">
+        <div class="card bg-base-100 shadow-lg mb-6">
+          <div class="card-body">
+            <h2 class="card-title text-xl mb-4">Shipping Information</h2>
+
+            <!-- Existing addresses -->
+            {addresses.length > 0 && (
+              <div class="mb-6">
+                <h3 class="text-lg font-medium mb-3">Saved Addresses</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {addresses.map((address) => (
+                    <div class={`border rounded-lg p-4 ${address.isDefault ? 'border-primary' : 'border-base-300'}`}>
+                      <div class="flex justify-between items-start mb-2">
+                        <div class="font-medium">{address.name}</div>
+                        {address.isDefault && <div class="badge badge-primary badge-sm">Default</div>}
+                      </div>
+                      <div class="text-sm space-y-1">
+                        <p>{address.line1}</p>
+                        {address.line2 && <p>{address.line2}</p>}
+                        <p>{address.city}, {address.state} {address.postalCode}</p>
+                        <p>{address.country}</p>
+                        {address.phone && <p>📞 {address.phone}</p>}
+                      </div>
+                      <div class="flex gap-2 mt-3">
+                        <button 
+                          id={`use-address-${address.id}`}
+                          class="btn btn-primary btn-sm"
+                          data-address-id={address.id}
+                        >
+                          Ship to this address
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <!-- New address form -->
+            <div>
+              <h3 class="text-lg font-medium mb-3">Add New Address</h3>
+              <form id="shipping-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">Full Name</span>
+                    </label>
+                    <input type="text" id="name" name="name" class="input input-bordered" required />
+                  </div>
+
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">Phone Number</span>
+                    </label>
+                    <input type="tel" id="phone" name="phone" class="input input-bordered" />
+                  </div>
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Address Line 1</span>
+                  </label>
+                  <input type="text" id="line1" name="line1" class="input input-bordered" required />
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Address Line 2 (Optional)</span>
+                  </label>
+                  <input type="text" id="line2" name="line2" class="input input-bordered" />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">City</span>
+                    </label>
+                    <input type="text" id="city" name="city" class="input input-bordered" required />
+                  </div>
+
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">State/Province</span>
+                    </label>
+                    <input type="text" id="state" name="state" class="input input-bordered" required />
+                  </div>
+
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">Postal Code</span>
+                    </label>
+                    <input type="text" id="postalCode" name="postalCode" class="input input-bordered" required />
+                  </div>
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Country</span>
+                  </label>
+                  <select id="country" name="country" class="select select-bordered" required>
+                    <option value="">Select Country</option>
+                    <option value="US">United States</option>
+                    <option value="CA">Canada</option>
+                    <option value="GB">United Kingdom</option>
+                    <option value="FR">France</option>
+                    <!-- Add more countries as needed -->
+                  </select>
+                </div>
+
+                <div class="form-control">
+                  <label class="label cursor-pointer justify-start gap-2">
+                    <input type="checkbox" id="saveAddress" name="saveAddress" class="checkbox" checked />
+                    <span class="label-text">Save this address for future orders</span>
+                  </label>
+                </div>
+
+                <div class="form-control">
+                  <label class="label cursor-pointer justify-start gap-2">
+                    <input type="checkbox" id="isDefault" name="isDefault" class="checkbox" />
+                    <span class="label-text">Make this my default shipping address</span>
+                  </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-full mt-4">Continue to Payment</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Order Summary -->
+      <div class="lg:col-span-1">
+        <CartSummary client:load />
+
+        <div class="card bg-base-100 shadow-lg mt-6">
+          <div class="card-body">
+            <h3 class="font-semibold">Need Help?</h3>
+            <p class="text-sm mb-4">Our customer service is available 24/7 to assist you with any questions.</p>
+            <a href="/contact" class="link link-primary">Contact Support</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- AuthGuard closing tag removed -->
+  </div>
+</MainLayout>
+
+<script>
+  import { redirectToCheckout } from '../lib/checkoutService';
+  import { cartItems } from '../stores/cartStore';
+  import { pb } from '../lib/pocketbase';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Client-side auth check temporarily removed
+    // Handle shipping form submission
+    const shippingForm = document.getElementById('shipping-form');
+    
+    if (shippingForm) {
+      shippingForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(shippingForm);
+        const shippingAddress = {
+          name: formData.get('name'),
+          phone: formData.get('phone'),
+          line1: formData.get('line1'),
+          line2: formData.get('line2'),
+          city: formData.get('city'),
+          state: formData.get('state'),
+          postalCode: formData.get('postalCode'),
+          country: formData.get('country'),
+        };
+
+        const saveAddress = formData.get('saveAddress') === 'on';
+        const isDefault = formData.get('isDefault') === 'on';
+        
+        // If user wants to save address
+        if (saveAddress && pb.authStore.isValid) {
+          try {
+            const userId = pb.authStore.model.id;
+            
+            // If this is set as default, update other addresses first
+            if (isDefault) {
+              // Get existing default addresses and update them
+              const existingDefaults = await pb.collection('shippingAddresses').getList(1, 100, {
+                filter: `user="${userId}" && isDefault=true`,
+              });
+              
+              for (const address of existingDefaults.items) {
+                await pb.collection('shippingAddresses').update(address.id, {
+                  isDefault: false,
+                });
+              }
+            }
+            
+            // Save the new address
+            await pb.collection('shippingAddresses').create({
+              user: userId,
+              name: shippingAddress.name,
+              phone: shippingAddress.phone,
+              line1: shippingAddress.line1,
+              line2: shippingAddress.line2,
+              city: shippingAddress.city,
+              state: shippingAddress.state,
+              postalCode: shippingAddress.postalCode,
+              country: shippingAddress.country,
+              isDefault: isDefault,
+            });
+          } catch (error) {
+            console.error('Error saving address:', error);
+          }
+        }
+
+        // Proceed to checkout
+        const items = cartItems.get();
+        
+        if (items.length === 0) {
+          alert('Your cart is empty');
+          return;
+        }
+        
+        // Format the cart items for the checkout
+        const formattedCartItems = items.map(item => ({
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          price: item.price,
+          promoPrice: item.promoPrice,
+          quantity: item.quantity,
+          image: item.image
+            ? `http://127.0.0.1:8090/api/files/products/${item.id}/${(item.image || '').split(',')[0]}`
+            : ''
+        }));
+        
+        try {
+          // Redirect to Stripe checkout
+          await redirectToCheckout(formattedCartItems, shippingAddress);
+        } catch (error) {
+          console.error('Checkout error:', error);
+          alert('An error occurred during checkout: ' + (error.message || 'Unknown error'));
+        }
+      });
+    }
+
+    // Handle "Ship to this address" buttons
+    document.querySelectorAll('[id^="use-address-"]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const addressId = button.getAttribute('data-address-id');
+        
+        if (!addressId) return;
+        
+        try {
+          const address = await pb.collection('shippingAddresses').getOne(addressId);
+          
+          // Format shipping address
+          const shippingAddress = {
+            name: address.name,
+            phone: address.phone,
+            line1: address.line1,
+            line2: address.line2,
+            city: address.city,
+            state: address.state,
+            postalCode: address.postalCode,
+            country: address.country,
+          };
+          
+          // Get cart items
+          const items = cartItems.get();
+          
+          if (items.length === 0) {
+            alert('Your cart is empty');
+            return;
+          }
+          
+          // Format the cart items for the checkout
+          const formattedCartItems = items.map(item => ({
+            id: item.id,
+            name: item.name,
+            description: item.description || '',
+            price: item.price,
+            promoPrice: item.promoPrice,
+            quantity: item.quantity,
+            image: item.image
+              ? `http://127.0.0.1:8090/api/files/products/${item.id}/${(item.image || '').split(',')[0]}`
+              : ''
+          }));
+          
+          // Redirect to Stripe checkout
+          await redirectToCheckout(formattedCartItems, shippingAddress);
+        } catch (error) {
+          console.error('Checkout error:', error);
+          alert('An error occurred during checkout: ' + (error.message || 'Unknown error'));
+        }
+      });
+    });
+  });
+</script>

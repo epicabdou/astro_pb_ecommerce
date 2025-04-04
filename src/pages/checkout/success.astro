@@ -1,0 +1,121 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import { pb, getOrderDetails } from '../../lib/pocketbase';
+import { stripe } from '../../lib/stripe';
+
+// Get the session ID from the query parameters
+const { searchParams } = Astro.url;
+const sessionId = searchParams.get('session_id');
+
+// Default values
+let orderData = null;
+let sessionData = null;
+let error = null;
+
+if (sessionId) {
+  try {
+    // Get session data from Stripe
+    sessionData = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    // Get order details if we have session data
+    if (sessionData && sessionData.metadata && sessionData.metadata.orderId) {
+      try {
+        const { order, items } = await getOrderDetails(sessionData.metadata.orderId);
+        orderData = { order, items };
+      } catch (err) {
+        console.error('Error retrieving order details:', err);
+        // If we couldn't get order details, we'll still show the success page
+        // but without specific order information
+      }
+    } else if (sessionData) {
+      // If there's no orderId in metadata yet (possible race condition with webhook),
+      // we still show success but without order details
+      console.log('Session found but no order ID in metadata yet');
+    }
+  } catch (err) {
+    console.error('Error retrieving order data:', err);
+    error = 'Unable to retrieve your order information. Please contact customer support.';
+  }
+}
+---
+
+<MainLayout>
+  <div class="container mx-auto px-4 py-12">
+    <div class="max-w-lg mx-auto">
+      {!sessionId && (
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold mb-4">Order Status</h1>
+          <p class="mb-4 text-error">Missing session information. Unable to verify your order.</p>
+          <div class="mt-8">
+            <a href="/" class="btn btn-primary">Return to Home</a>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold mb-4">Order Status</h1>
+          <p class="mb-4 text-error">{error}</p>
+          <div class="mt-8">
+            <a href="/" class="btn btn-primary">Return to Home</a>
+          </div>
+        </div>
+      )}
+
+      {sessionId && !error && (
+        <div class="card bg-base-100 shadow-lg">
+          <div class="card-body">
+            <div class="text-center mb-6">
+              <div class="text-success text-6xl mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-16 h-16 mx-auto">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              </div>
+              <h1 class="text-3xl font-bold mb-2">Order Successful!</h1>
+              <p class="text-base-content/70">Thank you for your purchase</p>
+            </div>
+
+            {orderData ? (
+              <div>
+                <div class="divider my-2">Order Details</div>
+
+                <div class="text-sm">
+                  <p><span class="font-semibold">Order ID:</span> {orderData.order.id}</p>
+                  <p><span class="font-semibold">Date:</span> {new Date(orderData.order.created).toLocaleString()}</p>
+                  <p><span class="font-semibold">Status:</span> <span class="badge badge-success">Paid</span></p>
+                  <p><span class="font-semibold">Total:</span> ${orderData.order.total.toFixed(2)}</p>
+                </div>
+
+                <div class="divider my-2">Items</div>
+
+                <ul class="mb-4">
+                  {orderData.items.map(item => (
+                    <li class="flex justify-between py-2 border-b border-base-300 last:border-none">
+                      <div>
+                        <span class="font-medium">{item.expand?.product?.name}</span>
+                        <span class="text-xs"> × {item.quantity}</span>
+                      </div>
+                      <span>${item.price.toFixed(2)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div class="py-4 text-center">
+                <p>Your order has been received and is being processed.</p>
+                <p class="text-sm text-base-content/70 mt-2">You will receive a confirmation email shortly.</p>
+              </div>
+            )}
+
+            <div class="card-actions justify-center mt-6">
+              <a href="/" class="btn btn-primary">Continue Shopping</a>
+              {pb.authStore.isValid && (
+                <a href="/account/orders" class="btn btn-outline">View Orders</a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</MainLayout>
